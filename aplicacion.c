@@ -12,6 +12,15 @@
 #define SHMSIZE 2048
 #define BUFSIZE 50
 
+//deftype struct martin {
+//    pid_t
+//    lo que vuelve de los pipes
+//    md5
+//};
+
+//TODO:HACER ESTE STRUCT PARA PASARLE A LOS SLAVES. UN ARRAY DE ESTE STRUCT
+//TODO: SI O SI TIENE QUE HACERSE EXECV PARA EL SLAVE
+
 
 
 int main(int argc, char* argv[]) {
@@ -40,6 +49,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("%s\n%d\n", SHMDIR, SHMSIZE);
+    // TODO : PROBAR CON 1 SLAVE. EL SELECT ES UN PROBLEMA PARA CUANDO HAY MAS DE 1 SLAVE
 
 
     int counter = argc;   //FORKS DE ESCLAVOS
@@ -57,8 +67,7 @@ int main(int argc, char* argv[]) {
         }
 
         fd = fork();
-        if (fd ==
-            0) {           //EL PROCESO ES ESCLAVO. DEBE ESTAR DESPIERTO HASTA QUE LA VARAIBLE QUEDAN_ARCHIVOS SEA 0.
+        if (fd == 0) {           //EL PROCESO ES ESCLAVO. DEBE ESTAR DESPIERTO HASTA QUE LA VARAIBLE QUEDAN_ARCHIVOS SEA 0.
             counter = 0;
             //wait();            //ESPERO QUE ME PASEN UN ARCHIVO POR EL PIPE TODO: hacer este wait y mil mas(chequear todos juntos)
             char path[BUFSIZE];
@@ -72,11 +81,16 @@ int main(int argc, char* argv[]) {
 
             char result[BUFSIZE];
             sprintf(result, "%s\n%s\n%d\n", path, buf, getpid());   //TODO: que no imprima todo el path
+
+            //TODO: HACER LOS DUP2
             write(fd_pipeOut[1], result, BUFSIZE);
+            //SENDPOST();
         } else {
             counter--;
         }
     }
+
+
 
 
     munmap(NULL, SHMSIZE);
