@@ -1,1 +1,1 @@
-- Link with -lrt
+- Link with -lrt -lm
