@@ -18,7 +18,6 @@ typedef struct payload {
     int pipeIn[2];
     int pipeOut[2];
     int pid;//se puede optimizar el size
-    int work;
 }payload;
 
 //TODO:HACER ESTE STRUCT PARA PASARLE A LOS SLAVES. UN ARRAY DE ESTE STRUCT
@@ -27,6 +26,7 @@ typedef struct payload {
 
 
 int main(int argc, char* argv[]) {
+    //setvbuf(stdout, NULL, _IONBF, 0);
     // if (argc <= 1) {
     //     perror("No arguments");
     //     exit(-1);
@@ -44,6 +44,7 @@ int main(int argc, char* argv[]) {
     //     perror("ftruncate");
     //     exit(-2);
     // }
+
 
     // void *addr_parent = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_app, 0);
     // if (addr_parent == MAP_FAILED) {
