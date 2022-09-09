@@ -18,27 +18,45 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         void *addr_vista = mmap(NULL, atoi(argv[2]), PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
         if( addr_vista == MAP_FAILED) perror("mmap vista");
 
-        //int *x_vista = (int *) addr_vista;
+        int *x_vista = (int *) addr_vista;
+        while(*x_vista!= 10){
+            printf(".\n");
+        }
+        printf("Uala\n");
 
 
 
     }else{               //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
         //se lee la entrada estandar y se obtienen el nombre y el tamanio del shm
-        char input[RBUFF] = {'\0'};
-        if( read(STDIN_FILENO, input, RBUFF) == -1) perror("Standard Input Read");
-        
-        const char delim = '\n';
-        char * token;
-
-        token = strtok(input, &delim);
 
         char name[RBUFF] = {'\0'};
-        strcpy(name, token);
+        if( fgets(name, RBUFF, stdin) == NULL) perror("fgets error");
 
-        token = strtok(NULL, &delim );
+
+        name[strlen(name)-1]='\0';
 
         char sizeString[RBUFF] = {'\0'};
-        strcpy(sizeString, token);
+        if( fgets(sizeString, RBUFF, stdin) == NULL) perror("fgets error");
+
+
+
+
+
+        // char input[RBUFF] = {'\0'};
+        // if( read(STDIN_FILENO, input, RBUFF) == -1) perror("Standard Input Read");
+        
+        // const char delim = '\n';
+        // char * token;
+
+        // token = strtok(input, &delim);
+
+        // char name[RBUFF] = {'\0'};
+        // strcpy(name, token);
+
+        // token = strtok(NULL, &delim );
+
+        // char sizeString[RBUFF] = {'\0'};
+        // strcpy(sizeString, token);
 
         int size = atoi(sizeString);
 
@@ -49,7 +67,17 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         void *addr_vista = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
         if( addr_vista == MAP_FAILED) perror("mmap vista");
 
-        //int *x_vista = (int *) addr_vista;
+        int *x_vista = (int *) addr_vista;
+        while(*x_vista!= 10){
+            printf(".\n");
+        }
+        printf("Uala\n");
+
+        while(1){
+            printf("Vista\n");
+            sleep(1);
+        }
+
 
 
     }

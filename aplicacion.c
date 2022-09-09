@@ -47,55 +47,65 @@ int main(int argc, char* argv[]) {
         perror("mmap app");
         exit(-2);
     }
-
+    setvbuf(stdout, NULL, _IONBF, 0);
     printf("%s\n%d\n", SHMDIR, SHMSIZE);
     // TODO : PROBAR CON 1 SLAVE. EL SELECT ES UN PROBLEMA PARA CUANDO HAY MAS DE 1 SLAVE
 
 
-    int counter = argc;   //FORKS DE ESCLAVOS
-    int fd;
-    while (counter > 0) {
-        int fd_pipeIn[2];
-        if (pipe(fd_pipeIn) == -1) {
-            perror("pipe");
-            exit(-3);
-        }
-        int fd_pipeOut[2];
-        if (pipe(fd_pipeOut) == -1) {
-            perror("pipe");
-            exit(-3);
-        }
+    // int counter = argc;   //FORKS DE ESCLAVOS
+    // int fd;
+    // while (counter > 0) {
+    //     int fd_pipeIn[2];
+    //     if (pipe(fd_pipeIn) == -1) {
+    //         perror("pipe");
+    //         exit(-3);
+    //     }
+    //     int fd_pipeOut[2];
+    //     if (pipe(fd_pipeOut) == -1) {
+    //         perror("pipe");
+    //         exit(-3);
+    //     }
 
-        fd = fork();
-        if (fd == 0) {           //EL PROCESO ES ESCLAVO. DEBE ESTAR DESPIERTO HASTA QUE LA VARAIBLE QUEDAN_ARCHIVOS SEA 0.
-            counter = 0;
-            //wait();            //ESPERO QUE ME PASEN UN ARCHIVO POR EL PIPE TODO: hacer este wait y mil mas(chequear todos juntos)
-            char path[BUFSIZE];
-            read(fd_pipeIn[0], path, BUFSIZE);
-            char *command = "md5 ";
-            strcat(command, path);
-            FILE *md5 = popen(command, "r");
+    //     fd = fork();
+    //     if (fd == 0) {           //EL PROCESO ES ESCLAVO. DEBE ESTAR DESPIERTO HASTA QUE LA VARAIBLE QUEDAN_ARCHIVOS SEA 0.
+    //         counter = 0;
+    //         //wait();            //ESPERO QUE ME PASEN UN ARCHIVO POR EL PIPE TODO: hacer este wait y mil mas(chequear todos juntos)
+    //         char path[BUFSIZE];
+    //         read(fd_pipeIn[0], path, BUFSIZE);
+    //         char *command = "md5 ";
+    //         strcat(command, path);
+    //         FILE *md5 = popen(command, "r");
 
-            char buf[BUFSIZE];
-            fgets(buf, BUFSIZE, md5);
+    //         char buf[BUFSIZE];
+    //         fgets(buf, BUFSIZE, md5);
 
-            char result[BUFSIZE];
-            sprintf(result, "%s\n%s\n%d\n", path, buf, getpid());   //TODO: que no imprima todo el path
+    //         char result[BUFSIZE];
+    //         sprintf(result, "%s\n%s\n%d\n", path, buf, getpid());   //TODO: que no imprima todo el path
 
-            //TODO: HACER LOS DUP2
-            write(fd_pipeOut[1], result, BUFSIZE);
-            //SENDPOST();
-        } else {
-            counter--;
-        }
+    //         //TODO: HACER LOS DUP2
+    //         write(fd_pipeOut[1], result, BUFSIZE);
+    //         //SENDPOST();
+    //     } else {
+    //         counter--;
+    //     }
+    // }
+
+
+
+
+    // munmap(NULL, SHMSIZE);
+    // shm_unlink(SHMDIR);
+    // close(fd_app);
+
+    printf("Pre test\n");
+
+    int *x_app = (int *) addr_parent;
+    *x_app=10;
+
+    while(1){
+        printf("llegue aca\n");
+        sleep(1);
     }
-
-
-
-
-    munmap(NULL, SHMSIZE);
-    shm_unlink(SHMDIR);
-    close(fd_app);
 
     return 0;
 
