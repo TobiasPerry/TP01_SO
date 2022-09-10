@@ -67,11 +67,19 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         void *addr_vista = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
         if( addr_vista == MAP_FAILED) perror("mmap vista");
 
-        int *x_vista = (int *) addr_vista;
-        while(*x_vista!= 10){
-            printf(".\n");
+        // int *x_vista = (int *) addr_vista;
+        // while(*x_vista!= 10){
+        //     printf(".\n");
+        // }
+        // printf("Uala\n");
+
+        char * x_vista = (char *) addr_vista;
+        char message[BUFSIZ] = {'\0'};
+        int index = 0;
+        while(*x_vista != '\0'){
+            message[index] = *x_vista;
+            x_vista++;
         }
-        printf("Uala\n");
 
         while(1){
             printf("Vista\n");

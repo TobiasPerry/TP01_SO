@@ -9,6 +9,13 @@
 #include <string.h>
 #include <math.h>
 
+/* According to POSIX.1-2001 */
+#include <sys/select.h>
+
+/* According to earlier standards */
+#include <sys/time.h>
+#include <sys/types.h>
+
 #define SHMDIR "/myshm"
 #define SHMSIZE 2048
 #define BUFSIZE 50
@@ -108,9 +115,10 @@ int main(int argc, char* argv[]) {
                 //TODO: que no imprima todo el path
 
                 //TODO: HACER LOS DUP2
-                char pidbuf[10];
-                snprintf(pidbuf,10,"  %d\n", slaves[0].pid);
+                char pidbuf[10] = {'\0'};
+                snprintf(pidbuf,10,"  %d\n", slaves[i].pid);
                 strcat(buf,pidbuf);
+                //printf("%s\n", buf);
                 write(slaves[i].pipeOut[1], buf, strlen(buf));
             }else{
                 finished=1;
@@ -118,10 +126,11 @@ int main(int argc, char* argv[]) {
         }
         close(slaves[i].pipeIn[0]);
         close(slaves[i].pipeOut[1]);
-        printf("llegue\n");
+        exit(0);
+        //printf("llegue\n");
         //SENDPOST();
     }else{
-        int j;
+        /*int j;
         
         for(j=0;j<argc-1;j++){
             write(slaves[j%slavecount].pipeIn[1],argv[j+1],BUFSIZE);
@@ -135,9 +144,57 @@ int main(int argc, char* argv[]) {
         read(slaves[0].pipeOut[0], resultado , BUFSIZE);
         printf("%s\n",resultado);
         
-        
+        */
         //close de todos los slaves
+
+        //prueba con select
+        //primer ciclo que se le mandan a todos los esclavos
+        int fileIndex= 0;
+        int j;
+
+        for(j=0;j<slavecount;j++){
+            write(slaves[j].pipeIn[1],argv[fileIndex+1],BUFSIZE);
+            fileIndex++;
+        }
+
+        fd_set current_fds, ready_fds;
+
+        FD_ZERO(&current_fds);
+        for(j=0;j<slavecount;j++){
+            FD_SET(slaves[j].pipeOut[0],&current_fds);
+        }
+        
+        int archivos_a_leer = argc-1;
+        char resultado[BUFSIZE] = {'\0'};
+
+        while(archivos_a_leer > 0){
+            ready_fds = current_fds;
+
+            if( select(FD_SETSIZE,&ready_fds,NULL, NULL, NULL) == -1) { perror("select");}
+
+            for(j=0 ; j < slavecount; j++){
+                if( FD_ISSET(slaves[j].pipeOut[0], &ready_fds)){
+                    read(slaves[j].pipeOut[0], resultado , BUFSIZE);
+                    archivos_a_leer--;
+                    printf("%s\n", resultado);
+                    //le pasa por shm a vista para que imprima
+                    //...
+
+                    //le cargamos otro archivo para que procese
+                    if(fileIndex < argc-1){
+                        write(slaves[j].pipeIn[1],argv[fileIndex+1],BUFSIZE);
+                        fileIndex++;
+                    }
+                }
+            }
+        }
+        
+        for(j=0;j<slavecount;j++){
+            write(slaves[j].pipeIn[1],"0",BUFSIZE);
+            close(slaves[j].pipeIn[1]);
+        }
     }
+//int * x_app = (int *) addr
 
 // munmap(NULL, SHMSIZE);
 // shm_unlink(SHMDIR);
