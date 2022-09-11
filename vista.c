@@ -9,14 +9,16 @@
 #include <semaphore.h>
 
 #define RBUFF 20
-#define BUFFSIZE 50
+#define BUFFSIZE 100
 
 
 int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y el segundo es el tamanio
 
     void * addr_vista;
     sem_t * mySem;
-
+    char semName[RBUFF] = {'\0'};
+    char name[RBUFF] = {'\0'};
+    int size = 0;
 
     if(argc > 1){        //Proceso vista se corrio en comandos distintos, se pasa la info por parametro
         int fd_view = shm_open(argv[1], O_RDWR,0);
@@ -35,7 +37,7 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
     }else{               //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
         //se lee la entrada estandar y se obtienen el nombre y el tamanio del shm
 
-        char name[RBUFF] = {'\0'};
+        
         if( fgets(name, RBUFF, stdin) == NULL) perror("fgets error");
 
 
@@ -44,13 +46,13 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         char sizeString[RBUFF] = {'\0'};
         if( fgets(sizeString, RBUFF, stdin) == NULL) perror("fgets error");
 
-        int size = atoi(sizeString);
+        size = atoi(sizeString);
 
 
         int fd_view = shm_open(name, O_RDWR,0);
         if (fd_view == -1) perror("shm_open vista");
 
-        char semName[RBUFF] = {'\0'};
+        
         if( fgets(semName, RBUFF, stdin) == NULL) perror("fgets error");
         semName[strlen(semName)-1] = '\0';
         //printf("%s",semName);
@@ -83,12 +85,21 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
             finished = 1;
             
         }
+        
         x_vista++;
 
         printf("%s\n", message);
     }
 
     //se cierra shm y semaphore
+    if(argc > 1){
+        munmap(NULL, atoi(argv[2]));
+        sem_close(mySem);
+    }
+    else{
+        munmap(NULL, size);
+        sem_close(mySem);
+    }
 
 
     

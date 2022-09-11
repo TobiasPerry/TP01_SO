@@ -20,7 +20,7 @@
 #define SEMNAME "/mysem"
 #define SHMDIR "/myshm"
 #define SHMSIZE 2048
-#define BUFSIZE 50
+#define BUFSIZE 100
 
 
 typedef struct payload {
@@ -35,6 +35,7 @@ typedef struct payload {
 
 
 int main(int argc, char* argv[]) {
+    
     setvbuf(stdout, NULL, _IONBF, 0);
      if (argc <= 1) {
          perror("No arguments");
@@ -116,6 +117,7 @@ int main(int argc, char* argv[]) {
                 char buf[BUFSIZE]={'\0'};
                 fgets(buf, BUFSIZE, md5);
                 buf[strlen(buf)-1]='\0';
+                pclose(md5);
 
                 //TODO: que no imprima todo el path
 
@@ -131,7 +133,7 @@ int main(int argc, char* argv[]) {
         }
         close(slaves[i].pipeIn[0]);
         close(slaves[i].pipeOut[1]);
-        exit(0);
+        
 
     }else{
 
@@ -151,7 +153,7 @@ int main(int argc, char* argv[]) {
         }
         
         int archivos_a_leer = argc-1;
-        char resultado[BUFSIZE] = {'\0'};
+        
 
         char * x_app = (char *) addr_app;
 
@@ -165,6 +167,8 @@ int main(int argc, char* argv[]) {
 
             for(j=0 ; j < slavecount; j++){
                 if( FD_ISSET(slaves[j].pipeOut[0], &ready_fds)){
+                    char resultado[BUFSIZE] = {'\0'};
+
                     read(slaves[j].pipeOut[0], resultado , BUFSIZE);
                     archivos_a_leer--;
                     write(ResultadoFd, resultado, strlen(resultado));
@@ -196,13 +200,13 @@ int main(int argc, char* argv[]) {
         *x_app = '\0';
         sem_post(mySem);
     }
-
-//     munmap(NULL, SHMSIZE);
-//     shm_unlink(SHMDIR);
-//     close(fd_app);
-//    sem_unlink(SEMNAME);
-//    sem_close(mySem);
-
+        sem_unlink(SEMNAME);
+        munmap(NULL, SHMSIZE);
+        shm_unlink(SHMDIR);
+        close(fd_app);
+        
+        sem_close(mySem);
+    
     return 0;
 
 }
