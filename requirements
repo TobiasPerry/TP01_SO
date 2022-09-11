@@ -1,1 +1,1 @@
-- Link with -lrt -lm
+- Link with -lrt -lm -pthread

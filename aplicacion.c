@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <semaphore.h>
 
 /* According to POSIX.1-2001 */
 #include <sys/select.h>
@@ -16,6 +17,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#define SEMNAME "/mysem"
 #define SHMDIR "/myshm"
 #define SHMSIZE 2048
 #define BUFSIZE 50
@@ -33,33 +35,38 @@ typedef struct payload {
 
 
 int main(int argc, char* argv[]) {
-    //setvbuf(stdout, NULL, _IONBF, 0);
-    // if (argc <= 1) {
-    //     perror("No arguments");
-    //     exit(-1);
-    // }
+    setvbuf(stdout, NULL, _IONBF, 0);
+     if (argc <= 1) {
+         perror("No arguments");
+         exit(-1);
+     }
 
-    // sleep(2);
-    // int fd_app;
-    // fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    // if (fd_app == -1) {
-    //     perror("shm_open app");
-    //     exit(-2);
-    // }
+     sleep(2);
+     int fd_app;
+     fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+     if (fd_app == -1) {
+         perror("shm_open app");
+         exit(-2);
+     }
 
-    // if (ftruncate(fd_app, SHMSIZE) == -1) {
-    //     perror("ftruncate");
-    //     exit(-2);
-    // }
+     if (ftruncate(fd_app, SHMSIZE) == -1) {
+         perror("ftruncate");
+         exit(-2);
+     }
 
 
-    // void *addr_parent = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_app, 0);
-    // if (addr_parent == MAP_FAILED) {
-    //     perror("mmap app");
-    //     exit(-2);
-    // }
+     void *addr_app = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_app, 0);
+     if (addr_app == MAP_FAILED) {
+         perror("mmap app");
+         exit(-2);
+     }
 
-    // printf("%s\n%d\n", SHMDIR, SHMSIZE);
+    sem_t * mySem = sem_open(SEMNAME, O_CREAT|O_WRONLY, S_IWUSR,0);
+     if (mySem == SEM_FAILED){
+         perror("sem_open");
+         exit(-2);
+     }
+     printf("%s\n%d\n%s\n", SHMDIR, SHMSIZE, SEMNAME);
     // TODO : PROBAR CON 1 SLAVE. EL SELECT ES UN PROBLEMA PARA CUANDO HAY MAS DE 1 SLAVE
 
 
@@ -92,12 +99,10 @@ int main(int argc, char* argv[]) {
     }
     i--;
     
-    if (pid == 0) {  
-        //EL PROCESO ES ESCLAVO. DEBE ESTAR DESPIERTO HASTA QUE LA VARAIBLE QUEDAN_ARCHIVOS SEA 0.
+    if (pid == 0) {
         int finished = 0;
-        
+
         while(finished==0){
-            //ESPERO QUE ME PASEN UN ARCHIVO POR EL PIPE TODO: hacer este wait y mil mas(chequear todos juntos)
 
             char path[BUFSIZE];
             read(slaves[i].pipeIn[0], path, BUFSIZE);
@@ -111,7 +116,7 @@ int main(int argc, char* argv[]) {
                 char buf[BUFSIZE]={'\0'};
                 fgets(buf, BUFSIZE, md5);
                 buf[strlen(buf)-1]='\0';
-                
+
                 //TODO: que no imprima todo el path
 
                 //TODO: HACER LOS DUP2
@@ -127,28 +132,9 @@ int main(int argc, char* argv[]) {
         close(slaves[i].pipeIn[0]);
         close(slaves[i].pipeOut[1]);
         exit(0);
-        //printf("llegue\n");
-        //SENDPOST();
-    }else{
-        /*int j;
-        
-        for(j=0;j<argc-1;j++){
-            write(slaves[j%slavecount].pipeIn[1],argv[j+1],BUFSIZE);
-        }
-        for(j=0;j<slavecount;j++){
-                write(slaves[j].pipeIn[1],"0",BUFSIZE);
-            close(slaves[j].pipeIn[1]);
-        }
-        
-        char resultado[10];
-        read(slaves[0].pipeOut[0], resultado , BUFSIZE);
-        printf("%s\n",resultado);
-        
-        */
-        //close de todos los slaves
 
-        //prueba con select
-        //primer ciclo que se le mandan a todos los esclavos
+    }else{
+
         int fileIndex= 0;
         int j;
 
@@ -167,19 +153,30 @@ int main(int argc, char* argv[]) {
         int archivos_a_leer = argc-1;
         char resultado[BUFSIZE] = {'\0'};
 
+        char * x_app;
         while(archivos_a_leer > 0){
             ready_fds = current_fds;
 
             if( select(FD_SETSIZE,&ready_fds,NULL, NULL, NULL) == -1) { perror("select");}
 
+
             for(j=0 ; j < slavecount; j++){
                 if( FD_ISSET(slaves[j].pipeOut[0], &ready_fds)){
                     read(slaves[j].pipeOut[0], resultado , BUFSIZE);
                     archivos_a_leer--;
-                    printf("%s\n", resultado);
+                    //printf("%s\n", resultado);
                     //le pasa por shm a vista para que imprima
                     //...
+                    x_app = (char *) addr_app;
+                    int k;
+                    for (k = 0; k < strlen(resultado); ++k) {
+                        *x_app = resultado[k];
+                        x_app++;
+                    }
+                    *x_app = '\0';
+                    x_app++;
 
+                    sem_post(mySem);
                     //le cargamos otro archivo para que procese
                     if(fileIndex < argc-1){
                         write(slaves[j].pipeIn[1],argv[fileIndex+1],BUFSIZE);
@@ -188,19 +185,21 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        
+
         for(j=0;j<slavecount;j++){
             write(slaves[j].pipeIn[1],"0",BUFSIZE);
             close(slaves[j].pipeIn[1]);
         }
-    }
-//int * x_app = (int *) addr
+        *x_app = '\0';
+        }
 
-// munmap(NULL, SHMSIZE);
-// shm_unlink(SHMDIR);
-// close(fd_app);
+//     munmap(NULL, SHMSIZE);
+//     shm_unlink(SHMDIR);
+//     close(fd_app);
+//    sem_unlink(SEMNAME);
+//    sem_close(mySem);
 
-return 0;
+    return 0;
 
 }
 
