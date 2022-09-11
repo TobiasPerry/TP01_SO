@@ -153,7 +153,10 @@ int main(int argc, char* argv[]) {
         int archivos_a_leer = argc-1;
         char resultado[BUFSIZE] = {'\0'};
 
-        char * x_app;
+        char * x_app = (char *) addr_app;
+
+        int ResultadoFd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
+
         while(archivos_a_leer > 0){
             ready_fds = current_fds;
 
@@ -164,10 +167,10 @@ int main(int argc, char* argv[]) {
                 if( FD_ISSET(slaves[j].pipeOut[0], &ready_fds)){
                     read(slaves[j].pipeOut[0], resultado , BUFSIZE);
                     archivos_a_leer--;
-                    //printf("%s\n", resultado);
+                    write(ResultadoFd, resultado, strlen(resultado));
                     //le pasa por shm a vista para que imprima
                     //...
-                    x_app = (char *) addr_app;
+                    //x_app = 
                     int k;
                     for (k = 0; k < strlen(resultado); ++k) {
                         *x_app = resultado[k];
@@ -191,7 +194,8 @@ int main(int argc, char* argv[]) {
             close(slaves[j].pipeIn[1]);
         }
         *x_app = '\0';
-        }
+        sem_post(mySem);
+    }
 
 //     munmap(NULL, SHMSIZE);
 //     shm_unlink(SHMDIR);

@@ -25,11 +25,11 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         addr_vista = mmap(NULL, atoi(argv[2]), PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
         if( addr_vista == MAP_FAILED) perror("mmap vista");
 
-//        mySem = sem_open(argv[3], O_RDONLY, S_IWUSR,0);
-//        if (mySem == SEM_FAILED){
-//            perror("sem_open");
-//            exit(-2);
-//        }
+       mySem = sem_open(argv[3], O_RDONLY, S_IWUSR,0);
+       if (mySem == SEM_FAILED){
+           perror("sem_open");
+           exit(-2);
+       }
 
 
     }else{               //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
@@ -52,8 +52,8 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
 
         char semName[RBUFF] = {'\0'};
         if( fgets(semName, RBUFF, stdin) == NULL) perror("fgets error");
-        printf("%s",semName);
-        semName[strlen(semName-1)] = '\0';
+        semName[strlen(semName)-1] = '\0';
+        //printf("%s",semName);
 
         mySem = sem_open(semName, O_RDONLY, S_IWUSR,0);
         if (mySem == SEM_FAILED){
@@ -79,13 +79,18 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
             message[index++] = *x_vista;
             x_vista++;
         }
-        if (*x_vista == '\0' && index == 0)
+        if (*x_vista == '\0' && index == 0){
             finished = 1;
+            
+        }
         x_vista++;
 
         printf("%s\n", message);
     }
 
+    //se cierra shm y semaphore
 
+
+    
     return 0;
 }
