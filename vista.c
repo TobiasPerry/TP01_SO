@@ -21,54 +21,51 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
     int size = 0;
 
     if(argc > 1){        //Proceso vista se corrio en comandos distintos, se pasa la info por parametro
+        //Orden de parametros: nombre de shm, tamaño de shm, nombre de semaforo
+
+        //apertura de shared memory
         int fd_view = shm_open(argv[1], O_RDWR,0);
         if (fd_view == -1) perror("shm_open vista");
 
         addr_vista = mmap(NULL, atoi(argv[2]), PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
         if( addr_vista == MAP_FAILED) perror("mmap vista");
 
-       mySem = sem_open(argv[3], O_RDONLY, S_IWUSR,0);
-       if (mySem == SEM_FAILED){
-           perror("sem_open");
-           exit(-2);
-       }
+        //apertura de semaforo
+        mySem = sem_open(argv[3], O_RDONLY, S_IRUSR,0);
+        if (mySem == SEM_FAILED){
+            perror("sem_open");
+            exit(-2);
+        }
 
 
-    }else{               //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
-        //se lee la entrada estandar y se obtienen el nombre y el tamanio del shm
-
-        
+    }else{      //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
+        //se lee la entrada estandar (salida estandar de hm5) y se obtienen el nombre, el tamanio del shm y el nombre del semaforo
         if( fgets(name, RBUFF, stdin) == NULL) perror("fgets error");
-
-
-        name[strlen(name)-1]='\0';
+        name[strlen(name)-1]='\0';              //fgets agrega el '\n' que lee, se lo remueve
 
         char sizeString[RBUFF] = {'\0'};
         if( fgets(sizeString, RBUFF, stdin) == NULL) perror("fgets error");
 
         size = atoi(sizeString);
 
-
+        //apertura de shared memory
         int fd_view = shm_open(name, O_RDWR,0);
         if (fd_view == -1) perror("shm_open vista");
 
+        addr_vista = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
+        if( addr_vista == MAP_FAILED) perror("mmap vista");
+
         
         if( fgets(semName, RBUFF, stdin) == NULL) perror("fgets error");
-        semName[strlen(semName)-1] = '\0';
-        //printf("%s",semName);
+        semName[strlen(semName)-1] = '\0';     //fgets agrega el '\n' que lee, se lo remueve
 
+        //apertura de semaforo
         mySem = sem_open(semName, O_RDONLY, S_IWUSR,0);
         if (mySem == SEM_FAILED){
             perror("sem_open vista");
             exit(-2);
         }
-
-
-        addr_vista = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_view, 0);
-        if( addr_vista == MAP_FAILED) perror("mmap vista");
-
     }
-
 
     int finished = 0;
     char * x_vista = (char *) addr_vista;
@@ -76,18 +73,20 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
 
         char message[BUFFSIZE] = {'\0'};
         int index = 0;
+
+        //vista espera hasta que aplicacion mande señal de que hay algo para leer
         sem_wait(mySem);
+
+        //vista lee resultado de un archivo del shm hasta un '\0' (delimitador)
         while(*x_vista != '\0'){
             message[index++] = *x_vista;
             x_vista++;
         }
+        //Si lo primero que manda aplicacion es un '\0', significa que no hay nada mas para imprimir
         if (*x_vista == '\0' && index == 0){
             finished = 1;
-            
         }
-        
         x_vista++;
-
         printf("%s\n", message);
     }
 
@@ -100,8 +99,5 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         munmap(NULL, size);
         sem_close(mySem);
     }
-
-
-    
     return 0;
 }
