@@ -17,6 +17,8 @@
 
 void printInfo(void * address, sem_t* mySem);
 void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize);
+sem_t * abrir_sem_vista(char * semName);
+void getParams(char * name, char * sizeString, char * semName);
 
 void printInfo(void * address, sem_t* mySem) {
     int finished = 0;
@@ -37,12 +39,16 @@ void printInfo(void * address, sem_t* mySem) {
     };
 }
 
-void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize){
+void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize) {
     *fd_view = shm_open(shmName, O_RDWR, 0);
-    if (*fd_view == -1) perror("shm_open vista");
+    if (*fd_view == -1){ perror("shm_open vista");
+    exit(-1);}
 
     void * addr_vista = mmap(NULL, atoi(shmSize), PROT_READ|PROT_WRITE, MAP_SHARED, *fd_view, 0);
-    if( addr_vista == MAP_FAILED) perror("mmap vista");
+    if( addr_vista == MAP_FAILED) {
+        perror("mmap vista");
+        exit(-1);
+    };
 
     return addr_vista;
 }
@@ -57,12 +63,15 @@ sem_t * abrir_sem_vista(char * semName){
 }
 
 void getParams(char * name, char * sizeString, char * semName){
-    if( fgets(name, RBUFF, stdin) == NULL) perror("fgets error");
+    if( fgets(name, RBUFF, stdin) == NULL){perror("fgets error");
+    exit(-3);}
     name[strlen(name)-1]='\0';              //fgets agrega el '\n' que lee, se lo remueve
 
-    if( fgets(sizeString, RBUFF, stdin) == NULL) perror("fgets error");
+    if( fgets(sizeString, RBUFF, stdin) == NULL) {perror("fgets error");
+    exit(-3);};
 
-    if( fgets(semName, RBUFF, stdin) == NULL) perror("fgets error");
+    if( fgets(semName, RBUFF, stdin) == NULL) {perror("fgets error");
+    exit(-3);}
     semName[strlen(semName)-1] = '\0';     //fgets agrega el '\n' que lee, se lo remueve
 }
 
@@ -94,7 +103,6 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
     }
 
          printInfo(addr_vista, mySem);
-
 
     //se cierra shm y semaphore
     if(argc > 1){
