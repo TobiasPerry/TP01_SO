@@ -172,6 +172,9 @@ int main(int argc, char* argv[]) {
 
         int ResultadoFd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
 
+        char title[]={"Hash\t\t\t\t\t\t\t Name\t\t\tPID\n"};
+        write(ResultadoFd,title, strlen(title));
+
         while(archivos_a_leer > 0){
             ready_fds = current_fds;
 
@@ -190,13 +193,22 @@ int main(int argc, char* argv[]) {
                     write(ResultadoFd, resultado, strlen(resultado));
                     
                     //se carga en shared memory el string con el resultado para que vista lo pueda acceder
-                    int k;
-                    for (k = 0; k < strlen(resultado); ++k) {
-                        *x_app = resultado[k];
-                        x_app++;
-                    }
+//                    int k;
+//                    for (k = 0; k < strlen(resultado); ++k) {
+//                        *x_app = resultado[k];
+//                        x_app++;
+//                    }
+//                    *x_app = '\0';
+//                    x_app++;
+
+
+                    sprintf(x_app,"%s", resultado);
+
+                    x_app += strlen(resultado);
                     *x_app = '\0';
                     x_app++;
+
+
 
                     //se manda señal que permite a vista leer
                     sem_post(mySem);
@@ -209,6 +221,9 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+
+        close(ResultadoFd);
+
         //Una vez que no hay mas archivos para procesar, se le avisan a los esclavos
         for(j=0;j<slavecount;j++){
             write(slaves[j].pipeIn[1],"0",BUFSIZE);

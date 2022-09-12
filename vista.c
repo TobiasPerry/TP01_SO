@@ -72,6 +72,7 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
 
     int finished = 0;
     char * x_vista = (char *) addr_vista;
+    printf("Hash\t\t\t\t   Name\t\t Pid\n");
     while (finished == 0){
 
         char message[BUFFSIZE] = {'\0'};
