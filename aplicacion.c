@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #define _BSD_SOURCE
 
 #include <stdio.h>
@@ -20,7 +23,7 @@
 #define SEMNAME "/mysem"
 #define SHMDIR "/myshm"
 #define SHMSIZE 2048
-#define BUFSIZE 100
+#define BUFSIZE 150
 
 
 //Struct para guardar los datos necesarios de los esclavos
@@ -76,7 +79,17 @@ int main(int argc, char* argv[]) {
         int finished = 0;
 
         while(finished==0){
-
+            int k;
+            close(slaves[i].pipeIn[1]);     
+            close(slaves[i].pipeOut[0]);
+            for(k=0;k<slavecount;k++){
+                if(k!=i){
+                    close(slaves[k].pipeIn[0]);
+                    close(slaves[k].pipeIn[1]);
+                    close(slaves[k].pipeOut[0]);
+                    close(slaves[k].pipeOut[1]);
+                }
+            }
             char path[BUFSIZE] = {'\0'};
             read(slaves[i].pipeIn[0], path, BUFSIZE);       //aplicacion pasa nombre del archivo a procesar
 
@@ -200,6 +213,9 @@ int main(int argc, char* argv[]) {
         for(j=0;j<slavecount;j++){
             write(slaves[j].pipeIn[1],"0",BUFSIZE);
             close(slaves[j].pipeIn[1]);
+            close(slaves[j].pipeIn[0]);
+            close(slaves[j].pipeOut[1]);
+            close(slaves[j].pipeOut[0]);
         }
 
         //Con este valor tambien se le avisa al proceso vista que no hay nada mas para imprimir

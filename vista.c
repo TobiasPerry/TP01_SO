@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>           /* For O_* constants */
@@ -78,16 +81,30 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
         sem_wait(mySem);
 
         //vista lee resultado de un archivo del shm hasta un '\0' (delimitador)
-        while(*x_vista != '\0'){
-            message[index++] = *x_vista;
-            x_vista++;
-        }
-        //Si lo primero que manda aplicacion es un '\0', significa que no hay nada mas para imprimir
-        if (*x_vista == '\0' && index == 0){
-            finished = 1;
-        }
-        x_vista++;
-        printf("%s\n", message);
+        // while(*x_vista != '\0'){
+        //     message[index++] = *x_vista;
+        //     x_vista++;
+        // }
+        // //Si lo primero que manda aplicacion es un '\0', significa que no hay nada mas para imprimir
+        // if (*x_vista == '\0' && index == 0){
+        //     finished = 1;
+        // }
+        // x_vista++;               0 1 2 3 4 5 1
+        // printf("%s\n", message); a b c d e
+         int strl = strlen(x_vista);
+         if (strl==0){
+            finished=1;
+         }
+         else{
+            printf("%s",x_vista);
+            x_vista=x_vista+strlen(x_vista)+1;
+         }
+        
+            
+         
+         
+
+
     }
 
     //se cierra shm y semaphore
