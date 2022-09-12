@@ -39,7 +39,7 @@ void * abrir_shm(int * fd_app);
 sem_t * abrir_sem();
 int abrir_result();
 void cerrar_esclavos(payload slaves[], int slavecount);
-void cerrar_shm(int fd_app);
+void cerrar_shm(int fd_app, void * addr_app);
 void cerrar_sem(sem_t * mySem);
 
 
@@ -114,7 +114,7 @@ int abrir_result(){
 void cerrar_esclavos(payload slaves[], int slavecount){
     int j;
     for(j=0;j<slavecount;j++){
-        write(slaves[j].pipeIn[1],"0",BUFSIZE);
+        write(slaves[j].pipeIn[1],"0",2);
         close(slaves[j].pipeIn[1]);
         close(slaves[j].pipeIn[0]);
         close(slaves[j].pipeOut[1]);
@@ -122,8 +122,8 @@ void cerrar_esclavos(payload slaves[], int slavecount){
     }
 }
 
-void cerrar_shm(int fd_app){
-    munmap(NULL, SHMSIZE);
+void cerrar_shm(int fd_app, void * addr_app){
+    munmap(addr_app, SHMSIZE);
     shm_unlink(SHMDIR);
 
     close(fd_app);
@@ -199,7 +199,8 @@ int main(int argc, char* argv[]) {
     }else{
         //Proceso aplicacion
         int fd_app;
-        char * x_app = (char *) abrir_shm(&fd_app);
+        void * addr_app =  abrir_shm(&fd_app);
+        char * x_app = (char *) addr_app;
         
         sem_t * mySem = abrir_sem();
         
@@ -268,7 +269,7 @@ int main(int argc, char* argv[]) {
         sem_post(mySem);
 
         cerrar_sem(mySem);
-        cerrar_shm(fd_app);
+        cerrar_shm(fd_app,addr_app);
     }    
     
     return 0;
