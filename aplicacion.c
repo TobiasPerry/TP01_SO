@@ -33,23 +33,18 @@ typedef struct payload {
     int pid;
 }payload;
 
-int main(int argc, char* argv[]) {
-    setvbuf(stdout, NULL, _IONBF, 0);
+void crear_pipes(payload slaves[], int slavecount);
+int crear_esclavos(payload slaves[], int slavecount, int * pid);
+void * abrir_shm(int * fd_app);
+sem_t * abrir_sem();
+int abrir_result();
+void cerrar_esclavos(payload slaves[], int slavecount);
+void cerrar_shm(int fd_app);
+void cerrar_sem(sem_t * mySem);
 
-    if (argc <= 1) {
-        perror("No arguments");
-        exit(-1);
-    }
 
-    
-
-    //Consideramos que en promedio un esclavo procese 5 archivos
-    const int slavecount = ceil((argc-1)*0.2);
-    int pid =1;
-    payload slaves[slavecount];
-    
+void crear_pipes(payload slaves[], int slavecount){
     int i;
-    //Creacion de los pipes entre aplicacion y esclavos
     for(i=0;i<slavecount;i++){
         if (pipe(slaves[i].pipeOut) == -1) {
                 perror("pipe");
@@ -61,35 +56,120 @@ int main(int argc, char* argv[]) {
         }
             
     }
-    //Creacion de esclavos con fork
-    for(i=0;i<slavecount && pid!=0;i++){
-        pid=fork();
-        if(pid==-1){
+}
+
+int crear_esclavos(payload slaves[], int slavecount, int * pid){
+    int i;
+    for(i=0;i<slavecount && *pid!=0;i++){
+        *pid=fork();
+        if(*pid==-1){
             perror("forkerror");
         }
-        else if(pid==0){
+        else if(*pid==0){
             slaves[i].pid=getpid();
         }
         
     }
-    i--;                            //Por como esta formateado el for, en el valor de i queda una posicion
-                                    //unica del arreglo de structs "payload" para cada esclavo
+    i--;
+    return i;
+}
+
+void * abrir_shm(int * fd_app){
+    *fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);            
+    if (*fd_app == -1) {
+        perror("shm_open app");
+        exit(-2);
+    }
+
+    if (ftruncate(*fd_app, SHMSIZE) == -1) {
+        perror("ftruncate");
+        exit(-2);
+    }
+
+
+    void *addr_app = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, *fd_app, 0);
+    if (addr_app == MAP_FAILED) {
+        perror("mmap app");
+        exit(-2);
+    }
+    return addr_app;
+}
+
+sem_t * abrir_sem(){
+    sem_t * mySem = sem_open(SEMNAME, O_CREAT|O_WRONLY, S_IROTH|S_IWUSR|S_IRUSR,0);             
+    if (mySem == SEM_FAILED){
+        perror("sem_open");
+        exit(-2);
+    }
+    return mySem;
+}
+
+int abrir_result(){
+    int resultado_fd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
+    char title[]={"Hash\t\t\t\t\t\t\t Name\t\t\tPID\n"};
+    write(resultado_fd,title, strlen(title));
+    return resultado_fd;
+}
+
+void cerrar_esclavos(payload slaves[], int slavecount){
+    int j;
+    for(j=0;j<slavecount;j++){
+        write(slaves[j].pipeIn[1],"0",BUFSIZE);
+        close(slaves[j].pipeIn[1]);
+        close(slaves[j].pipeIn[0]);
+        close(slaves[j].pipeOut[1]);
+        close(slaves[j].pipeOut[0]);
+    }
+}
+
+void cerrar_shm(int fd_app){
+    munmap(NULL, SHMSIZE);
+    shm_unlink(SHMDIR);
+
+    close(fd_app);
+}
+
+void cerrar_sem(sem_t * mySem){
+    sem_unlink(SEMNAME);
+    sem_close(mySem);
+}
+
+int main(int argc, char* argv[]) {
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    if (argc <= 1) {
+        perror("No arguments");
+        exit(-1);
+    }
+
+    //Consideramos que en promedio un esclavo procese 5 archivos
+    const int slavecount = ceil((argc-1)*0.2);
+    int pid =1;
+    payload slaves[slavecount];
+
+    crear_pipes(slaves, slavecount);
+
+    int i = crear_esclavos(slaves, slavecount, &pid);
+    //Por como esta formateado el for, en el valor de i queda una posicion
+    //unica del arreglo de structs "payload" para cada esclavo
+
     if (pid == 0) {
         //Proceso Esclavo
         int finished = 0;
 
-        while(finished==0){
-            int k;
-            close(slaves[i].pipeIn[1]);     
-            close(slaves[i].pipeOut[0]);
-            for(k=0;k<slavecount;k++){
-                if(k!=i){
-                    close(slaves[k].pipeIn[0]);
-                    close(slaves[k].pipeIn[1]);
-                    close(slaves[k].pipeOut[0]);
-                    close(slaves[k].pipeOut[1]);
-                }
+        close(slaves[i].pipeIn[1]);     
+        close(slaves[i].pipeOut[0]);
+        int k;
+        for(k=0;k<slavecount;k++){
+            if(k!=i){
+                close(slaves[k].pipeIn[0]);
+                close(slaves[k].pipeIn[1]);
+                close(slaves[k].pipeOut[0]);
+                close(slaves[k].pipeOut[1]);
             }
+        }
+
+        while(finished==0){
             char path[BUFSIZE] = {'\0'};
             read(slaves[i].pipeIn[0], path, BUFSIZE);       //aplicacion pasa nombre del archivo a procesar
 
@@ -105,7 +185,7 @@ int main(int argc, char* argv[]) {
                 pclose(md5);
 
                 char pidbuf[10] = {'\0'};
-                snprintf(pidbuf,10,"  %d\n", slaves[i].pid);
+                snprintf(pidbuf,10,"  %d\n", slaves[i].pid);        //se concatena el pid
                 strcat(buf,pidbuf);
                 write(slaves[i].pipeOut[1], buf, strlen(buf));      //se le devuelve la aplicacion lo pedido
             }else{
@@ -118,33 +198,10 @@ int main(int argc, char* argv[]) {
         
     }else{
         //Proceso aplicacion
-
-        //Creacion de Shared Memory
         int fd_app;
-        fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);            
-        if (fd_app == -1) {
-            perror("shm_open app");
-            exit(-2);
-        }
-
-        if (ftruncate(fd_app, SHMSIZE) == -1) {
-            perror("ftruncate");
-            exit(-2);
-        }
-
-
-        void *addr_app = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_app, 0);
-        if (addr_app == MAP_FAILED) {
-            perror("mmap app");
-            exit(-2);
-        }
-
-        //Creacion del Semaforo compartido con Vista
-        sem_t * mySem = sem_open(SEMNAME, O_CREAT|O_WRONLY, S_IROTH|S_IWUSR|S_IRUSR,0);             
-        if (mySem == SEM_FAILED){
-            perror("sem_open");
-            exit(-2);
-        }
+        char * x_app = (char *) abrir_shm(&fd_app);
+        
+        sem_t * mySem = abrir_sem();
         
         //Impresion para cuando se ejecuta como ./md5 files/* | ./vista
         printf("%s\n%d\n%s\n", SHMDIR, SHMSIZE, SEMNAME);
@@ -167,20 +224,13 @@ int main(int argc, char* argv[]) {
         }
         
         int archivos_a_leer = argc-1;
-        
-        char * x_app = (char *) addr_app;
 
-        int ResultadoFd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
-
-        char title[]={"Hash\t\t\t\t\t\t\t Name\t\t\tPID\n"};
-        write(ResultadoFd,title, strlen(title));
+        int resultado_fd = abrir_result();
 
         while(archivos_a_leer > 0){
             ready_fds = current_fds;
 
             if( select(FD_SETSIZE,&ready_fds,NULL, NULL, NULL) == -1) { perror("select");}
-            //Con uso de select, aplicacion espera hasta que tenga algo que leer del pipe de algun esclavo
-
             for(j=0 ; j < slavecount; j++){
                 //se busca que pipe esta disponible
                 if( FD_ISSET(slaves[j].pipeOut[0], &ready_fds)){
@@ -190,30 +240,17 @@ int main(int argc, char* argv[]) {
                     archivos_a_leer--;
 
                     //se escribe resultado de archivo procesado en resultado.txt
-                    write(ResultadoFd, resultado, strlen(resultado));
-                    
-                    //se carga en shared memory el string con el resultado para que vista lo pueda acceder
-//                    int k;
-//                    for (k = 0; k < strlen(resultado); ++k) {
-//                        *x_app = resultado[k];
-//                        x_app++;
-//                    }
-//                    *x_app = '\0';
-//                    x_app++;
+                    write(resultado_fd, resultado, strlen(resultado));
 
-
+                    //se escribe resultado en shm
                     sprintf(x_app,"%s", resultado);
-
                     x_app += strlen(resultado);
                     *x_app = '\0';
                     x_app++;
-
-
-
                     //se manda señal que permite a vista leer
                     sem_post(mySem);
 
-                    //se le pasa otro archivo para que procese
+                    //se le pasa otro archivo al esclavo para que procese
                     if(fileIndex < argc-1){
                         write(slaves[j].pipeIn[1],argv[fileIndex+1],BUFSIZE);
                         fileIndex++;
@@ -222,28 +259,16 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        close(ResultadoFd);
+        close(resultado_fd);
 
-        //Una vez que no hay mas archivos para procesar, se le avisan a los esclavos
-        for(j=0;j<slavecount;j++){
-            write(slaves[j].pipeIn[1],"0",BUFSIZE);
-            close(slaves[j].pipeIn[1]);
-            close(slaves[j].pipeIn[0]);
-            close(slaves[j].pipeOut[1]);
-            close(slaves[j].pipeOut[0]);
-        }
+        cerrar_esclavos(slaves, slavecount);
 
-        //Con este valor tambien se le avisa al proceso vista que no hay nada mas para imprimir
+        //Con este valor se le avisa al proceso vista que no hay nada mas para imprimir
         *x_app = '\0';
         sem_post(mySem);
 
-        //se cierran el shared memory y el semaforo
-        sem_unlink(SEMNAME);
-        munmap(NULL, SHMSIZE);
-        shm_unlink(SHMDIR);
-
-        close(fd_app);
-        sem_close(mySem); 
+        cerrar_sem(mySem);
+        cerrar_shm(fd_app);
     }    
     
     return 0;
