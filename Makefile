@@ -1,12 +1,10 @@
-SRCAPP := aplicacion.c
-SRCVIEW := vista.c
-
 RM := rm --force
 MAKE := $(MAKE) --no-print-directory
 
 CC := gcc
 CFLAGS := -Wall -lrt -lm -pthread
 DBGFLAGS := -g
+
 all:app vista
 
 app: aplicacion.c
