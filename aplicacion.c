@@ -41,7 +41,15 @@ int abrir_result();
 void cerrar_esclavos(payload slaves[], int slavecount);
 void cerrar_shm(int fd_app, void * addr_app);
 void cerrar_sem(sem_t * mySem);
+int is_regular_file(const char *path);
 
+
+int is_regular_file(const char *path)
+{
+    struct stat path_stat;
+    stat(path, &path_stat);
+    return S_ISREG(path_stat.st_mode);
+}
 
 void crear_pipes(payload slaves[], int slavecount){
     int i;
@@ -180,19 +188,22 @@ int main(int argc, char* argv[]) {
 
             if(strcmp(path,"0")!=0){                        //La aplicacion manda un 0 si no hay mas archivos para procesar
                 char command[BUFSIZE] = "md5sum ";
-                strcat(command, path);
-
-                FILE * md5 = popen(command, "r");
-
                 char buf[BUFSIZE]={'\0'};
-                fgets(buf, BUFSIZE, md5);
-                buf[strlen(buf)-1]='\0';                    //md5sum agrega un '\n' al final, se lo saca
-                pclose(md5);
+                if (is_regular_file(path)){
+                    strcat(command, path);
+                    FILE * md5 = popen(command, "r");
+                    fgets(buf, BUFSIZE, md5);
+                    buf[strlen(buf)-1] = '\0';
+                    pclose(md5);
+                    char pidbuf[10] = {'\0'};
+                    snprintf(pidbuf,10,"  %d\n", slaves[i].pid);        //se concatena el pid
+                    strcat(buf,pidbuf);
+                }
+                else{
+                    sprintf(buf, "Is a directory or does not exist  %s\t%d\n", path,slaves[i].pid);
+                }
+                write(slaves[i].pipeOut[1], buf, strlen(buf));     //se le devuelve la aplicacion lo pedido
 
-                char pidbuf[10] = {'\0'};
-                snprintf(pidbuf,10,"  %d\n", slaves[i].pid);        //se concatena el pid
-                strcat(buf,pidbuf);
-                write(slaves[i].pipeOut[1], buf, strlen(buf));      //se le devuelve la aplicacion lo pedido
             }else{
                 finished=1;
             }
@@ -247,7 +258,6 @@ int main(int argc, char* argv[]) {
 
                     //se escribe resultado de archivo procesado en resultado.txt
                     write(resultado_fd, resultado, strlen(resultado));
-
                     //se escribe resultado en shm
                     sprintf(x_app,"%s", resultado);
                     x_app += strlen(resultado);
