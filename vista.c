@@ -102,15 +102,15 @@ int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y
 
     }
 
-         printInfo(addr_vista, mySem);
+    printInfo(addr_vista, mySem);
 
     //se cierra shm y semaphore
     if(argc > 1){
-        munmap(NULL, atoi(argv[2]));
+        munmap(addr_vista, atoi(argv[2]));
         sem_close(mySem);
     }
     else{
-        munmap(NULL, size);
+        munmap(addr_vista, size);
         sem_close(mySem);
     }
     return 0;

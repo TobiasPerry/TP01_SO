@@ -64,6 +64,7 @@ int crear_esclavos(payload slaves[], int slavecount, int * pid){
         *pid=fork();
         if(*pid==-1){
             perror("forkerror");
+            exit(-4);
         }
         else if(*pid==0){
             slaves[i].pid=getpid();
@@ -106,6 +107,10 @@ sem_t * abrir_sem(){
 
 int abrir_result(){
     int resultado_fd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
+    if( resultado_fd == -1){
+        perror("Resultado Open");
+        exit(-5);
+    }
     char title[]={"Hash\t\t\t\t\t\t\t Name\t\t\tPID\n"};
     write(resultado_fd,title, strlen(title));
     return resultado_fd;
