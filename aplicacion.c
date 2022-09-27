@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
             
         }
         char * pipeName = "/tmp/namedPipe";
-        if (mkfifo(pipeName, S_IRUSR | S_IWUSR | S_IWOTH | S_IROTH) == -1){
+        if (mkfifo(pipeName, S_IRUSR | S_IWUSR | S_IROTH) == -1){
             perror("mkfifo");
             exit(-2);
         }
@@ -223,7 +223,6 @@ int main(int argc, char* argv[]) {
                     write(resultado_fd, resultado, strlen(resultado));
                     //se escribe resultado en fifo
                     write(fifo, resultado, strlen(resultado));
-
                     //se le pasa otro archivo al esclavo para que procese
                     if(fileIndex < argc-1){
                         write(slaves[j].pipeIn[1],argv[fileIndex+1],BUFSIZE);
