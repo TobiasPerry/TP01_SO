@@ -18,7 +18,7 @@
 void printInfo(void * address, sem_t* mySem);
 void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize);
 sem_t * abrir_sem_vista(char * semName);
-void getParams(char * name, char * sizeString, char * semName);
+void getParams(char * pipeName);
 
 void printInfo(void * address, sem_t* mySem) {
     int finished = 0;
@@ -39,80 +39,112 @@ void printInfo(void * address, sem_t* mySem) {
     };
 }
 
-void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize) {
-    *fd_view = shm_open(shmName, O_RDWR, 0);
-    if (*fd_view == -1){ perror("shm_open vista");
-    exit(-1);}
+//void * abrir_shm_vista(int * fd_view, char * shmName, char* shmSize) {
+//    *fd_view = shm_open(shmName, O_RDWR, 0);
+//    if (*fd_view == -1){ perror("shm_open vista");
+//    exit(-1);}
+//
+//    void * addr_vista = mmap(NULL, atoi(shmSize), PROT_READ|PROT_WRITE, MAP_SHARED, *fd_view, 0);
+//    if( addr_vista == MAP_FAILED) {
+//        perror("mmap vista");
+//        exit(-1);
+//    };
+//
+//    return addr_vista;
+//}
 
-    void * addr_vista = mmap(NULL, atoi(shmSize), PROT_READ|PROT_WRITE, MAP_SHARED, *fd_view, 0);
-    if( addr_vista == MAP_FAILED) {
-        perror("mmap vista");
-        exit(-1);
-    };
+//sem_t * abrir_sem_vista(char * semName){
+//    sem_t * mySem = sem_open(semName, O_RDONLY, S_IRUSR,0);
+//    if (mySem == SEM_FAILED){
+//        perror("sem_open");
+//        exit(-2);
+//    }
+//    return mySem;
+//}
 
-    return addr_vista;
-}
-
-sem_t * abrir_sem_vista(char * semName){
-    sem_t * mySem = sem_open(semName, O_RDONLY, S_IRUSR,0);
-    if (mySem == SEM_FAILED){
-        perror("sem_open");
-        exit(-2);
-    }
-    return mySem;
-}
-
-void getParams(char * name, char * sizeString, char * semName){
-    if( fgets(name, RBUFF, stdin) == NULL){perror("fgets error");
+void getParams(char * pipeName){
+    if( fgets(pipeName, RBUFF, stdin) == NULL){perror("fgets error");
     exit(-3);}
-    name[strlen(name)-1]='\0';              //fgets agrega el '\n' que lee, se lo remueve
+    pipeName[strlen(pipeName)-1]='\0';              //fgets agrega el '\n' que lee, se lo remueve
 
-    if( fgets(sizeString, RBUFF, stdin) == NULL) {perror("fgets error");
-    exit(-3);};
-
-    if( fgets(semName, RBUFF, stdin) == NULL) {perror("fgets error");
-    exit(-3);}
-    semName[strlen(semName)-1] = '\0';     //fgets agrega el '\n' que lee, se lo remueve
+//    if( fgets(sizeString, RBUFF, stdin) == NULL) {perror("fgets error");
+//    exit(-3);};
+//
+//    if( fgets(semName, RBUFF, stdin) == NULL) {perror("fgets error");
+//    exit(-3);}
+//    semName[strlen(semName)-1] = '\0';     //fgets agrega el '\n' que lee, se lo remueve
 }
 
 
 int main(int argc, char * argv[]){     //Primer parametro es el nombre del shm y el segundo es el tamanio
 
-    void * addr_vista;
-    sem_t * mySem;
-    char semName[RBUFF] = {'\0'};
-    char name[RBUFF] = {'\0'};
-    int fd_view;
-    int size;
+//    void * addr_vista;
+//    sem_t * mySem;
+//    char semName[RBUFF] = {'\0'};
+    char pipeName[RBUFF] = {'\0'};
+//    int fd_view;
+//    int size;
+    int fifo_vista;
+
 
     if(argc > 1){        //Proceso vista se corrio en comandos distintos, se pasa la info por parametro
         //Orden de parametros: nombre de shm, tamaño de shm, nombre de semaforo
-        addr_vista = abrir_shm_vista(&fd_view,argv[1],argv[2]);
-        mySem = abrir_sem_vista(argv[3]);
+//        addr_vista = abrir_shm_vista(&fd_view,argv[1],argv[2]);
+//        if (mkfifo(argv[1], S_IRUSR | S_IWUSR) == -1){
+//            perror("mkfifo");
+//            exit(-2);
+//        }
+//        mySem = abrir_sem_vista(argv[3]);
+        fifo_vista = open(argv[1], O_RDONLY);
 
     }else{      //Proceso vista se pipeo de la forma: ./hm5 files/* | ./vista
                     //se lee la entrada estandar (salida estandar de hm5) y se obtienen el nombre, el tamanio del shm y el nombre del semaforo
-        char sizeString[RBUFF] = {'\0'};
-        getParams(name, sizeString, semName);
-
-        addr_vista = abrir_shm_vista(&fd_view,name,sizeString);
-        size = atoi(sizeString);
-
-        mySem = abrir_sem_vista(semName);
+//        char sizeString[RBUFF] = {'\0'};
+        getParams(pipeName);
+//        if (mkfifo(pipeName, S_IRUSR | S_IWUSR) == -1){
+//            perror("mkfifo");
+//            exit(-2);
+//        }
+//        addr_vista = abrir_shm_vista(&fd_view,name,sizeString);
+//        if (mkfifo(pipeName, S_IRUSR | S_IWUSR) == -1){
+//            perror("mkfifo");
+//            exit(-2);
+//        }
+//        size = atoi(sizeString);
+        fifo_vista = open(pipeName, O_RDONLY);
+//        mySem = abrir_sem_vista(semName);
 
     }
 
-    printInfo(addr_vista, mySem);
+//    printInfo(addr_vista, mySem);
 
+
+    int finished = 0;
+    printf("Hash\t\t\t\t   Name\t\t Pid\n");
+    while (finished == 0) {
+
+        //vista espera hasta que aplicacion mande señal de que hay algo para leer
+//        sem_wait(mySem);
+        char buffer[BUFFSIZE] = {'\0'};
+        read(fifo_vista, buffer, BUFFSIZE);
+        int strl = strlen(buffer);
+        if (strl == 0) {
+            finished = 1;
+        } else {
+            printf("%s", buffer);
+//            x_vista = x_vista + strlen(x_vista) + 1;
+        }
+    };
     //se cierra shm y semaphore
-    if(argc > 1){
-        munmap(addr_vista, atoi(argv[2]));
-        sem_close(mySem);
-    }
-    else{
-        munmap(addr_vista, size);
-        sem_close(mySem);
-    }
+//    if(argc > 1){
+//        munmap(addr_vista, atoi(argv[2]));
+//        sem_close(mySem);
+//    }
+//    else{
+//        munmap(addr_vista, size);
+//        sem_close(mySem);
+//    }
+    close(fifo_vista);
     return 0;
 }
 

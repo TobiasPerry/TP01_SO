@@ -20,9 +20,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#define SEMNAME "/mysem"
-#define SHMDIR "/myshm"
-#define SHMSIZE 2048
+//#define SEMNAME "/mysem"
+//#define SHMDIR "/myshm"
+//#define SHMSIZE 2048
 #define BUFSIZE 150
 
 
@@ -83,35 +83,35 @@ int crear_esclavos(payload slaves[], int slavecount, int * pid){
     return i;
 }
 
-void * abrir_shm(int * fd_app){
-    *fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);            
-    if (*fd_app == -1) {
-        perror("shm_open app");
-        exit(-2);
-    }
+//void * abrir_shm(int * fd_app){
+//    *fd_app = shm_open(SHMDIR, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+//    if (*fd_app == -1) {
+//        perror("shm_open app");
+//        exit(-2);
+//    }
+//
+//    if (ftruncate(*fd_app, SHMSIZE) == -1) {
+//        perror("ftruncate");
+//        exit(-2);
+//    }
+//
+//
+//    void *addr_app = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, *fd_app, 0);
+//    if (addr_app == MAP_FAILED) {
+//        perror("mmap app");
+//        exit(-2);
+//    }
+//    return addr_app;
+//}
 
-    if (ftruncate(*fd_app, SHMSIZE) == -1) {
-        perror("ftruncate");
-        exit(-2);
-    }
-
-
-    void *addr_app = mmap(NULL, SHMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, *fd_app, 0);
-    if (addr_app == MAP_FAILED) {
-        perror("mmap app");
-        exit(-2);
-    }
-    return addr_app;
-}
-
-sem_t * abrir_sem(){
-    sem_t * mySem = sem_open(SEMNAME, O_CREAT|O_WRONLY, S_IROTH|S_IWUSR|S_IRUSR,0);             
-    if (mySem == SEM_FAILED){
-        perror("sem_open");
-        exit(-2);
-    }
-    return mySem;
-}
+//sem_t * abrir_sem(){
+//    sem_t * mySem = sem_open(SEMNAME, O_CREAT|O_WRONLY, S_IROTH|S_IWUSR|S_IRUSR,0);
+//    if (mySem == SEM_FAILED){
+//        perror("sem_open");
+//        exit(-2);
+//    }
+//    return mySem;
+//}
 
 int abrir_result(){
     int resultado_fd = open("Resultado.txt", O_CREAT | O_WRONLY | O_TRUNC, 00666);
@@ -134,21 +134,22 @@ void cerrar_esclavos(payload slaves[], int slavecount){
         close(slaves[j].pipeOut[0]);
     }
 }
+//
+//void cerrar_shm(int fd_app, void * addr_app){
+//    munmap(addr_app, SHMSIZE);
+//    shm_unlink(SHMDIR);
+//
+//    close(fd_app);
+//}
 
-void cerrar_shm(int fd_app, void * addr_app){
-    munmap(addr_app, SHMSIZE);
-    shm_unlink(SHMDIR);
-
-    close(fd_app);
-}
-
-void cerrar_sem(sem_t * mySem){
-    sem_unlink(SEMNAME);
-    sem_close(mySem);
-}
+//void cerrar_sem(sem_t * mySem){
+//    sem_unlink(SEMNAME);
+//    sem_close(mySem);
+//}
 
 int main(int argc, char* argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
+    int fifo;
 
     if (argc <= 1) {
         perror("No arguments");
@@ -214,14 +215,24 @@ int main(int argc, char* argv[]) {
         
     }else{
         //Proceso aplicacion
-        int fd_app;
-        void * addr_app =  abrir_shm(&fd_app);
-        char * x_app = (char *) addr_app;
-        
-        sem_t * mySem = abrir_sem();
+//        int fd_app;
+        char * pipeName = "/tmp/namedPipe";
+        if (mkfifo(pipeName, S_IRUSR | S_IWUSR | S_IWOTH | S_IROTH) == -1){
+            perror("mkfifo");
+            exit(-2);
+        }
+        //void * addr_app =  abrir_shm(&fd_app);
+        //char * x_app = (char *) addr_app;
+        fifo = open(pipeName, O_RDWR);
+        if (fifo == -1){
+            perror("open");
+            exit(-2);
+        }
+
+//        sem_t * mySem = abrir_sem();
         
         //Impresion para cuando se ejecuta como ./md5 files/* | ./vista
-        printf("%s\n%d\n%s\n", SHMDIR, SHMSIZE, SEMNAME);
+        printf("%s\n", pipeName);
         sleep(2);
 
         int fileIndex= 0;
@@ -255,16 +266,17 @@ int main(int argc, char* argv[]) {
 
                     read(slaves[j].pipeOut[0], resultado , BUFSIZE);
                     archivos_a_leer--;
-
                     //se escribe resultado de archivo procesado en resultado.txt
                     write(resultado_fd, resultado, strlen(resultado));
-                    //se escribe resultado en shm
-                    sprintf(x_app,"%s", resultado);
-                    x_app += strlen(resultado);
-                    *x_app = '\0';
-                    x_app++;
+                    //se escribe resultado en fifo
+                    write(fifo, resultado, strlen(resultado));
+                    write(fifo, "\0",1);
+//                    sprintf(x_app,"%s", resultado);
+//                    x_app += strlen(resultado);
+//                    *x_app = '\0';
+//                    x_app++;
                     //se manda señal que permite a vista leer
-                    sem_post(mySem);
+//                    sem_post(mySem);
 
                     //se le pasa otro archivo al esclavo para que procese
                     if(fileIndex < argc-1){
@@ -280,11 +292,14 @@ int main(int argc, char* argv[]) {
         cerrar_esclavos(slaves, slavecount);
 
         //Con este valor se le avisa al proceso vista que no hay nada mas para imprimir
-        *x_app = '\0';
-        sem_post(mySem);
-
-        cerrar_sem(mySem);
-        cerrar_shm(fd_app,addr_app);
+//        *x_app = '\0';
+        write(fifo, "\0",1);
+//        sem_post(mySem);
+//
+//        cerrar_sem(mySem);
+        //cerrar_shm(fd_app,addr_app);
+        close(fifo);
+        remove(pipeName);
     }    
     
     return 0;
