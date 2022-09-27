@@ -216,11 +216,18 @@ int main(int argc, char* argv[]) {
     }else{
         //Proceso aplicacion
 //        int fd_app;
+        int p;
+        for(p=0;p<slavecount;p++){
+            close(slaves[p].pipeIn[0]);
+            close(slaves[p].pipeOut[1]);
+            
+        }
         char * pipeName = "/tmp/namedPipe";
         if (mkfifo(pipeName, S_IRUSR | S_IWUSR | S_IWOTH | S_IROTH) == -1){
             perror("mkfifo");
             exit(-2);
         }
+        
         //void * addr_app =  abrir_shm(&fd_app);
         //char * x_app = (char *) addr_app;
         fifo = open(pipeName, O_RDWR);
@@ -228,6 +235,7 @@ int main(int argc, char* argv[]) {
             perror("open");
             exit(-2);
         }
+
 
 //        sem_t * mySem = abrir_sem();
         
